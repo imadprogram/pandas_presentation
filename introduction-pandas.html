@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Introduction à Pandas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0B0E14;
+    --bg-panel:#10141C;
+    --bg-cell:#161B26;
+    --bg-cell-2:#1B2130;
+    --border:#232A3A;
+    --border-soft:#1A202D;
+    --text-primary:#EDEFF4;
+    --text-secondary:#8B93A7;
+    --text-muted:#565F73;
+    --amber:#FFB020;
+    --teal:#2DD4BF;
+    --rose:#FF6B6B;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text-primary);
+    font-family:'Inter',sans-serif;
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.font-display{font-family:'Space Grotesk',sans-serif;}
+  .font-mono{font-family:'IBM Plex Mono',monospace;}
+
+  /* background grid motif */
+  #grid-bg{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background-image:
+      linear-gradient(var(--border-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--border-soft) 1px, transparent 1px);
+    background-size:56px 56px;
+    -webkit-mask-image: radial-gradient(circle at 50% 40%, black 10%, transparent 75%);
+    mask-image: radial-gradient(circle at 50% 40%, black 10%, transparent 75%);
+    opacity:.55;
+  }
+  #glow{
+    position:fixed; inset:0; z-index:0; pointer-events:none;
+    background:
+      radial-gradient(700px 500px at 15% 10%, rgba(255,176,32,.07), transparent 60%),
+      radial-gradient(700px 500px at 90% 85%, rgba(45,212,191,.07), transparent 60%);
+  }
+
+  /* progress bar */
+  #progress-track{
+    position:fixed; top:0; left:0; right:0; height:3px; background:var(--border-soft); z-index:50;
+  }
+  #progress-fill{
+    height:100%; width:0%;
+    background:linear-gradient(90deg,var(--amber),var(--teal));
+    transition:width .6s cubic-bezier(.16,1,.3,1);
+  }
+
+  /* deck & slides */
+  #deck{ position:relative; width:100vw; height:100vh; z-index:1;}
+  .slide{
+    position:absolute; inset:0;
+    display:flex; flex-direction:column; justify-content:center;
+    padding:clamp(1.75rem,5vw,5.5rem) clamp(1.75rem,7vw,7rem);
+    transition:transform .75s cubic-bezier(.16,1,.3,1), opacity .6s ease;
+    will-change:transform;
+  }
+  .slide[data-state="active"]{opacity:1; pointer-events:auto;}
+  .slide[data-state="inactive"]{opacity:0; pointer-events:none;}
+
+  .reveal{ opacity:0; transform:translateY(18px); transition:opacity .65s cubic-bezier(.16,1,.3,1), transform .65s cubic-bezier(.16,1,.3,1); }
+  .reveal.in{ opacity:1; transform:translateY(0); }
+
+  /* nav dock */
+  #dock{
+    position:fixed; left:50%; bottom:clamp(1rem,3vw,2.25rem); transform:translateX(-50%);
+    z-index:50; display:flex; align-items:center; gap:.9rem;
+    background:rgba(16,20,28,.7); border:1px solid var(--border); backdrop-filter:blur(10px);
+    padding:.55rem .8rem; border-radius:4px;
+  }
+  .nav-btn{
+    width:34px; height:34px; display:flex; align-items:center; justify-content:center;
+    color:var(--text-secondary); border:1px solid var(--border); border-radius:3px;
+    background:var(--bg-cell); transition:color .2s ease, border-color .2s ease, background .2s ease;
+    cursor:pointer;
+  }
+  .nav-btn:hover{ color:var(--amber); border-color:var(--amber); }
+  .nav-btn:focus-visible, .dot:focus-visible{ outline:2px solid var(--teal); outline-offset:2px; }
+
+  .dots{ display:flex; gap:.4rem; }
+  .dot{
+    width:22px; height:9px; border-radius:2px; background:var(--bg-cell-2);
+    border:1px solid var(--border); cursor:pointer; padding:0;
+    transition:background .3s ease, width .3s ease, border-color .3s ease;
+  }
+  .dot[data-active="true"]{ background:linear-gradient(90deg,var(--amber),var(--teal)); width:32px; border-color:transparent; }
+
+  #idx-label{
+    position:fixed; right:clamp(1rem,3vw,2.5rem); bottom:clamp(1rem,3vw,2.25rem);
+    z-index:50; font-size:.8rem; color:var(--text-muted); letter-spacing:.02em;
+  }
+  #idx-label span{ color:var(--amber); }
+
+  #brand-label{
+    position:fixed; left:clamp(1rem,3vw,2.5rem); bottom:clamp(1rem,3vw,2.25rem);
+    z-index:50; font-size:.8rem; color:var(--text-muted);
+  }
+
+  /* code block */
+  .code{
+    background:var(--bg-panel); border:1px solid var(--border); border-radius:4px;
+    padding:1.1rem 1.3rem; font-family:'IBM Plex Mono',monospace; font-size:.87rem;
+    line-height:1.75; color:var(--text-secondary); overflow-x:auto;
+  }
+  .code .kw{color:var(--teal);}
+  .code .str{color:var(--amber);}
+  .code .fn{color:#8FB8FF;}
+  .code .com{color:var(--text-muted); font-style:italic;}
+  .code .num{color:var(--rose);}
+
+  /* table viz */
+  .tbl{ border:1px solid var(--border); border-radius:4px; overflow:hidden; background:var(--bg-panel); }
+  .tbl-row{ display:grid; }
+  .tbl-cell{
+    padding:.55rem .8rem; font-family:'IBM Plex Mono',monospace; font-size:.8rem;
+    border-right:1px solid var(--border-soft); border-bottom:1px solid var(--border-soft);
+    color:var(--text-secondary); white-space:nowrap;
+  }
+  .tbl-cell:last-child{border-right:none;}
+  .tbl-row:last-child .tbl-cell{border-bottom:none;}
+  .tbl-head .tbl-cell{ color:var(--teal); background:var(--bg-cell); font-weight:600; }
+  .tbl-idx{ color:var(--text-muted); background:var(--bg-cell); }
+  .cell-nan{ color:var(--rose); }
+  .cell-dup{ background:rgba(255,107,107,.08); }
+  .cell-fixed{ color:var(--teal); }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:.4rem; font-family:'IBM Plex Mono',monospace;
+    font-size:.75rem; padding:.3rem .6rem; border:1px solid var(--border); border-radius:3px;
+    color:var(--text-secondary); background:var(--bg-cell);
+  }
+
+  ::-webkit-scrollbar{height:8px; width:8px;}
+  ::-webkit-scrollbar-thumb{background:var(--border); border-radius:4px;}
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition-duration:.01ms !important; animation-duration:.01ms !important; }
+  }
+  @media (max-width:768px){
+    body{overflow-y:auto;}
+    .slide{ position:relative; min-height:100vh; }
+  }
+</style>
+</head>
+<body>
+
+  <div id="grid-bg"></div>
+  <div id="glow"></div>
+  <div id="progress-track"><div id="progress-fill"></div></div>
+
+  <div id="deck">
+
+    <!-- SLIDE 0 : WELCOME -->
+    <section class="slide" data-index="0">
+      <div class="max-w-5xl mx-auto w-full">
+        <p class="reveal font-mono text-sm tracking-wide" style="color:var(--text-muted)" data-d="0">import pandas as pd</p>
+        <h1 class="reveal font-display font-700 mt-5 leading-[1.03]" style="font-size:clamp(2.6rem,7vw,5.5rem); font-weight:700;" data-d="1">
+          Introduction à <span style="background:linear-gradient(90deg,var(--amber),var(--teal)); -webkit-background-clip:text; background-clip:text; color:transparent;">Pandas</span>
+        </h1>
+        <p class="reveal mt-6 max-w-xl" style="color:var(--text-secondary); font-size:clamp(1rem,1.6vw,1.2rem); line-height:1.7;" data-d="2">
+          La bibliothèque Python qui transforme des données brutes en tableaux propres, exploitables et prêts pour l'analyse.
+        </p>
+
+        <div class="reveal mt-14 flex flex-wrap items-center gap-4" data-d="3">
+          <div class="tbl" style="width:fit-content;">
+            <div class="tbl-row" style="grid-template-columns:70px 130px 90px;">
+              <div class="tbl-cell tbl-head"></div>
+              <div class="tbl-cell tbl-head">présentateur</div>
+              <div class="tbl-cell tbl-head">rôle</div>
+            </div>
+            <div class="tbl-row" style="grid-template-columns:70px 130px 90px;">
+              <div class="tbl-cell tbl-idx">0</div>
+              <div class="tbl-cell" style="color:var(--text-primary)">Imad</div>
+              <div class="tbl-cell">Data Science</div>
+            </div>
+            <div class="tbl-row" style="grid-template-columns:70px 130px 90px;">
+              <div class="tbl-cell tbl-idx">1</div>
+              <div class="tbl-cell" style="color:var(--text-primary)">Amin</div>
+              <div class="tbl-cell">Data Science</div>
+            </div>
+          </div>
+        </div>
+
+        <p class="reveal mt-14 font-mono text-xs" style="color:var(--text-muted)" data-d="4">
+          <i class="fa-solid fa-arrow-right mr-2" style="color:var(--amber)"></i>utilisez les flèches du clavier pour naviguer
+        </p>
+      </div>
+    </section>
+
+    <!-- SLIDE 1 : STRUCTURES -->
+    <section class="slide" data-index="1">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[1]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Découvrir Pandas et ses structures</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          Deux structures fondamentales permettent de représenter et manipuler des données : la <span style="color:var(--teal)">Series</span>, colonne unique indexée, et le <span style="color:var(--amber)">DataFrame</span>, tableau à deux dimensions.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-6">
+          <div class="reveal" data-d="3">
+            <h3 class="font-display mb-3" style="color:var(--teal); font-size:1.15rem;">Series — une dimension</h3>
+            <div class="tbl mb-4" style="width:fit-content;">
+              <div class="tbl-row" style="grid-template-columns:70px 140px;">
+                <div class="tbl-cell tbl-idx">0</div><div class="tbl-cell" style="color:var(--text-primary)">Casablanca</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:70px 140px;">
+                <div class="tbl-cell tbl-idx">1</div><div class="tbl-cell" style="color:var(--text-primary)">Rabat</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:70px 140px;">
+                <div class="tbl-cell tbl-idx">2</div><div class="tbl-cell" style="color:var(--text-primary)">Fès</div>
+              </div>
+            </div>
+            <div class="code">s = pd.<span class="fn">Series</span>([<span class="str">'Casablanca'</span>, <span class="str">'Rabat'</span>, <span class="str">'Fès'</span>])</div>
+          </div>
+
+          <div class="reveal" data-d="4">
+            <h3 class="font-display mb-3" style="color:var(--amber); font-size:1.15rem;">DataFrame — deux dimensions</h3>
+            <div class="tbl mb-4">
+              <div class="tbl-row" style="grid-template-columns:50px 90px 60px 110px;">
+                <div class="tbl-cell tbl-head"></div><div class="tbl-cell tbl-head">nom</div><div class="tbl-cell tbl-head">age</div><div class="tbl-cell tbl-head">ville</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 60px 110px;">
+                <div class="tbl-cell tbl-idx">0</div><div class="tbl-cell" style="color:var(--text-primary)">Imad</div><div class="tbl-cell">23</div><div class="tbl-cell">Casablanca</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 60px 110px;">
+                <div class="tbl-cell tbl-idx">1</div><div class="tbl-cell" style="color:var(--text-primary)">Amin</div><div class="tbl-cell">25</div><div class="tbl-cell">Rabat</div>
+              </div>
+            </div>
+            <div class="code">df = pd.<span class="fn">DataFrame</span>({<span class="str">'nom'</span>: [...], <span class="str">'age'</span>: [...]})</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 2 : CREER ET MANIPULER -->
+    <section class="slide" data-index="2">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[2]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Créer et manipuler des données</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          Un DataFrame se construit à partir d'un dictionnaire, puis se transforme : ajout d'une colonne, suppression, ou aperçu rapide de sa structure.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 items-start">
+          <div class="reveal" data-d="3">
+            <div class="code mb-4">df = pd.<span class="fn">DataFrame</span>({
+  <span class="str">'nom'</span>: [<span class="str">'Imad'</span>, <span class="str">'Amin'</span>, <span class="str">'Sara'</span>],
+  <span class="str">'age'</span>: [<span class="num">23</span>, <span class="num">25</span>, <span class="num">22</span>]
+})
+
+<span class="com"># ajouter une colonne</span>
+df[<span class="str">'ville'</span>] = [<span class="str">'Casablanca'</span>, <span class="str">'Rabat'</span>, <span class="str">'Fès'</span>]
+
+<span class="com"># retirer une colonne</span>
+df.<span class="fn">drop</span>(columns=[<span class="str">'age'</span>], inplace=<span class="kw">True</span>)</div>
+          </div>
+
+          <div class="reveal" data-d="4">
+            <p class="font-mono text-xs mb-3" style="color:var(--text-muted)">df.head()</p>
+            <div class="tbl">
+              <div class="tbl-row" style="grid-template-columns:50px 90px 110px;">
+                <div class="tbl-cell tbl-head"></div><div class="tbl-cell tbl-head">nom</div><div class="tbl-cell tbl-head">ville</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 110px;">
+                <div class="tbl-cell tbl-idx">0</div><div class="tbl-cell" style="color:var(--text-primary)">Imad</div><div class="tbl-cell">Casablanca</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 110px;">
+                <div class="tbl-cell tbl-idx">1</div><div class="tbl-cell" style="color:var(--text-primary)">Amin</div><div class="tbl-cell">Rabat</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 110px;">
+                <div class="tbl-cell tbl-idx">2</div><div class="tbl-cell" style="color:var(--text-primary)">Sara</div><div class="tbl-cell">Fès</div>
+              </div>
+            </div>
+            <div class="flex gap-3 mt-5 flex-wrap">
+              <span class="pill"><i class="fa-solid fa-check" style="color:var(--teal)"></i>df.info()</span>
+              <span class="pill"><i class="fa-solid fa-check" style="color:var(--teal)"></i>df.shape</span>
+              <span class="pill"><i class="fa-solid fa-check" style="color:var(--teal)"></i>df.dtypes</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 3 : LIRE EXPLORER SELECTIONNER -->
+    <section class="slide" data-index="3">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[3]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Lire, explorer et sélectionner</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          <span class="font-mono" style="color:var(--teal)">read_csv</span> charge un fichier, tandis que <span class="font-mono" style="color:var(--amber)">.loc</span> et <span class="font-mono" style="color:var(--amber)">.iloc</span> ciblent précisément les lignes et colonnes recherchées.
+        </p>
+
+        <div class="grid md:grid-cols-3 gap-5">
+          <div class="reveal" data-d="3">
+            <div class="tbl mb-3" style="height:36px; display:flex; align-items:center; justify-content:center;"><span class="font-mono text-xs" style="color:var(--teal)">read_csv</span></div>
+            <div class="code" style="font-size:.8rem;">df = pd.<span class="fn">read_csv</span>(
+  <span class="str">'etudiants.csv'</span>
+)</div>
+          </div>
+          <div class="reveal" data-d="4">
+            <div class="tbl mb-3" style="height:36px; display:flex; align-items:center; justify-content:center;"><span class="font-mono text-xs" style="color:var(--amber)">.loc — par étiquette</span></div>
+            <div class="code" style="font-size:.8rem;">df.<span class="fn">loc</span>[<span class="num">0</span>, <span class="str">'nom'</span>]
+df.<span class="fn">loc</span>[:, <span class="str">'ville'</span>]</div>
+          </div>
+          <div class="reveal" data-d="5">
+            <div class="tbl mb-3" style="height:36px; display:flex; align-items:center; justify-content:center;"><span class="font-mono text-xs" style="color:var(--amber)">.iloc — par position</span></div>
+            <div class="code" style="font-size:.8rem;">df.<span class="fn">iloc</span>[<span class="num">0</span>, <span class="num">1</span>]
+df.<span class="fn">iloc</span>[<span class="num">0</span>:<span class="num">2</span>]</div>
+          </div>
+        </div>
+
+        <div class="reveal mt-10 flex gap-3 flex-wrap" data-d="6">
+          <span class="pill"><i class="fa-solid fa-table" style="color:var(--teal)"></i>df.shape</span>
+          <span class="pill"><i class="fa-solid fa-list" style="color:var(--teal)"></i>df.columns</span>
+          <span class="pill"><i class="fa-solid fa-chart-simple" style="color:var(--teal)"></i>df.describe()</span>
+          <span class="pill"><i class="fa-solid fa-eye" style="color:var(--teal)"></i>df.head(3)</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 4 : FILTRER TRIER MODIFIER -->
+    <section class="slide" data-index="4">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[4]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Filtrer, trier et modifier</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          Un masque booléen isole les lignes qui répondent à une condition ; <span class="font-mono" style="color:var(--teal)">sort_values</span> les ordonne, et une opération vectorisée crée une nouvelle colonne.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 items-start">
+          <div class="reveal" data-d="3">
+            <div class="code">
+<span class="com"># filtrer les étudiants majeurs</span>
+df[df[<span class="str">'age'</span>] &gt; <span class="num">18</span>]
+
+<span class="com"># trier par note décroissante</span>
+df.<span class="fn">sort_values</span>(<span class="str">'note'</span>, ascending=<span class="kw">False</span>)
+
+<span class="com"># créer une colonne dérivée</span>
+df[<span class="str">'mention'</span>] = df[<span class="str">'note'</span>] &gt;= <span class="num">14</span></div>
+          </div>
+
+          <div class="reveal" data-d="4">
+            <p class="font-mono text-xs mb-3" style="color:var(--text-muted)">résultat trié</p>
+            <div class="tbl">
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px 90px;">
+                <div class="tbl-cell tbl-head"></div><div class="tbl-cell tbl-head">nom</div><div class="tbl-cell tbl-head">note</div><div class="tbl-cell tbl-head">mention</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px 90px;">
+                <div class="tbl-cell tbl-idx">1</div><div class="tbl-cell" style="color:var(--text-primary)">Amin</div><div class="tbl-cell" style="color:var(--teal)">18</div><div class="tbl-cell cell-fixed">True</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px 90px;">
+                <div class="tbl-cell tbl-idx">0</div><div class="tbl-cell" style="color:var(--text-primary)">Imad</div><div class="tbl-cell" style="color:var(--teal)">15</div><div class="tbl-cell cell-fixed">True</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px 90px;">
+                <div class="tbl-cell tbl-idx">3</div><div class="tbl-cell" style="color:var(--text-primary)">Yasmine</div><div class="tbl-cell">12</div><div class="tbl-cell" style="color:var(--text-muted)">False</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 5 : VALEURS MANQUANTES ET DOUBLONS -->
+    <section class="slide" data-index="5">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[5]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Valeurs manquantes et doublons</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          Avant toute analyse, un jeu de données réel se nettoie : cases vides et lignes répétées faussent les résultats si elles ne sont pas traitées.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-8 items-start">
+          <div class="reveal" data-d="3">
+            <p class="font-mono text-xs mb-3" style="color:var(--text-muted)">avant nettoyage</p>
+            <div class="tbl mb-4">
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px;">
+                <div class="tbl-cell tbl-head"></div><div class="tbl-cell tbl-head">nom</div><div class="tbl-cell tbl-head">note</div>
+              </div>
+              <div class="tbl-row" style="grid-template-columns:50px 90px 70px;">
+                <div class="tbl-cell tbl-idx">2</div><div class="tbl-cell" style="color:var(--text-primary)">Sara</div><div class="tbl-cell cell-nan">NaN</div>
+              </div>
+              <div class="tbl-row cell-dup" style="grid-template-columns:50px 90px 70px;">
+                <div class="tbl-cell tbl-idx">1</div><div class="tbl-cell" style="color:var(--text-primary)">Amin</div><div class="tbl-cell">18</div>
+              </div>
+              <div class="tbl-row cell-dup" style="grid-template-columns:50px 90px 70px;">
+                <div class="tbl-cell tbl-idx">4</div><div class="tbl-cell" style="color:var(--text-primary)">Amin</div><div class="tbl-cell">18</div>
+              </div>
+            </div>
+            <div class="code" style="font-size:.8rem;">df.<span class="fn">isna</span>().<span class="fn">sum</span>()
+df.<span class="fn">duplicated</span>()</div>
+          </div>
+
+          <div class="reveal" data-d="4">
+            <p class="font-mono text-xs mb-3" style="color:var(--text-muted)">deux stratégies</p>
+            <div class="code mb-4">
+<span class="com"># supprimer les lignes incomplètes</span>
+df.<span class="fn">dropna</span>(inplace=<span class="kw">True</span>)
+
+<span class="com"># ou remplacer par une valeur</span>
+df[<span class="str">'note'</span>].<span class="fn">fillna</span>(df[<span class="str">'note'</span>].mean())
+
+<span class="com"># retirer les doublons</span>
+df.<span class="fn">drop_duplicates</span>(inplace=<span class="kw">True</span>)</div>
+            <p class="font-mono text-xs" style="color:var(--text-muted)">résultat : <span style="color:var(--teal)">0 valeur manquante</span> · <span style="color:var(--teal)">0 doublon</span></p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SLIDE 6 : BONNES PRATIQUES -->
+    <section class="slide" data-index="6">
+      <div class="max-w-6xl mx-auto w-full">
+        <p class="reveal font-mono text-sm" style="color:var(--amber)" data-d="0">iloc[6]</p>
+        <h2 class="reveal font-display font-700 mt-2 mb-4" style="font-size:clamp(1.9rem,4vw,3rem);" data-d="1">Bonnes pratiques en Data Science</h2>
+        <p class="reveal max-w-2xl mb-10" style="color:var(--text-secondary); font-size:1.05rem; line-height:1.7;" data-d="2">
+          Pandas est optimisé pour le calcul vectorisé. Éviter les boucles et enchaîner les méthodes rend le code plus rapide et plus lisible.
+        </p>
+
+        <div class="grid md:grid-cols-2 gap-6 mb-8">
+          <div class="reveal" data-d="3">
+            <p class="font-mono text-xs mb-2" style="color:var(--rose)"><i class="fa-solid fa-turtle mr-1"></i>boucle — lent</p>
+            <div class="code" style="border-color:rgba(255,107,107,.25);">
+resultats = []
+<span class="kw">for</span> note <span class="kw">in</span> df[<span class="str">'note'</span>]:
+    resultats.append(note * <span class="num">1.1</span>)
+df[<span class="str">'note_maj'</span>] = resultats</div>
+          </div>
+          <div class="reveal" data-d="4">
+            <p class="font-mono text-xs mb-2" style="color:var(--teal)"><i class="fa-solid fa-bolt mr-1"></i>vectorisé — rapide</p>
+            <div class="code" style="border-color:rgba(45,212,191,.25);">
+df[<span class="str">'note_maj'</span>] = df[<span class="str">'note'</span>] * <span class="num">1.1</span></div>
+          </div>
+        </div>
+
+        <div class="reveal" data-d="5">
+          <p class="font-mono text-xs mb-2" style="color:var(--text-muted)">method chaining — un pipeline lisible</p>
+          <div class="code">résultat = (
+    df
+    .<span class="fn">dropna</span>()
+    .<span class="fn">query</span>(<span class="str">'age > 18'</span>)
+    .<span class="fn">assign</span>(mention=<span class="kw">lambda</span> d: d[<span class="str">'note'</span>] &gt;= <span class="num">14</span>)
+    .<span class="fn">sort_values</span>(<span class="str">'note'</span>, ascending=<span class="kw">False</span>)
+)</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <div id="brand-label">Pandas · Imad &amp; Amin</div>
+  <div id="idx-label">iloc[<span id="idx-num">0</span>] / 6</div>
+
+  <nav id="dock" aria-label="Navigation de la présentation">
+    <button class="nav-btn" id="prevBtn" aria-label="Diapositive précédente"><i class="fa-solid fa-chevron-left"></i></button>
+    <div class="dots" id="dots"></div>
+    <button class="nav-btn" id="nextBtn" aria-label="Diapositive suivante"><i class="fa-solid fa-chevron-right"></i></button>
+  </nav>
+
+<script>
+(function(){
+  const slides = Array.from(document.querySelectorAll('.slide'));
+  const total = slides.length;
+  const dotsWrap = document.getElementById('dots');
+  const progressFill = document.getElementById('progress-fill');
+  const idxNum = document.getElementById('idx-num');
+  let current = 0;
+  let animating = false;
+
+  slides.forEach((s,i)=>{
+    const dot = document.createElement('button');
+    dot.className = 'dot';
+    dot.setAttribute('data-target', i);
+    dot.setAttribute('aria-label', 'Aller à la diapositive ' + (i+1));
+    dot.addEventListener('click', ()=> goTo(i));
+    dotsWrap.appendChild(dot);
+  });
+  const dots = Array.from(document.querySelectorAll('.dot'));
+
+  function layout(){
+    slides.forEach((s,i)=>{
+      const offset = i - current;
+      s.style.transform = 'translateX(' + (offset*100) + '%)';
+      s.setAttribute('data-state', i === current ? 'active' : 'inactive');
+    });
+  }
+
+  function revealContent(){
+    slides.forEach((s,i)=>{
+      const items = s.querySelectorAll('.reveal');
+      if(i === current){
+        items.forEach(el=>{
+          const delay = parseInt(el.getAttribute('data-d') || '0', 10);
+          el.style.transitionDelay = (delay * 90) + 'ms';
+          requestAnimationFrame(()=> el.classList.add('in'));
+        });
+      } else {
+        items.forEach(el=>{
+          el.classList.remove('in');
+          el.style.transitionDelay = '0ms';
+        });
+      }
+    });
+  }
+
+  function updateChrome(){
+    progressFill.style.width = ((current)/(total-1)*100) + '%';
+    idxNum.textContent = current;
+    dots.forEach((d,i)=> d.setAttribute('data-active', i===current ? 'true' : 'false'));
+  }
+
+  function goTo(i){
+    if(animating) return;
+    i = Math.max(0, Math.min(total-1, i));
+    if(i === current) return;
+    current = i;
+    animating = true;
+    layout();
+    updateChrome();
+    revealContent();
+    setTimeout(()=> animating = false, 760);
+  }
+
+  document.getElementById('nextBtn').addEventListener('click', ()=> goTo(current+1));
+  document.getElementById('prevBtn').addEventListener('click', ()=> goTo(current-1));
+
+  window.addEventListener('keydown', (e)=>{
+    if(['ArrowRight','ArrowDown',' ','PageDown'].includes(e.key)){ e.preventDefault(); goTo(current+1); }
+    if(['ArrowLeft','ArrowUp','PageUp'].includes(e.key)){ e.preventDefault(); goTo(current-1); }
+    if(e.key === 'Home'){ goTo(0); }
+    if(e.key === 'End'){ goTo(total-1); }
+  });
+
+  // basic touch swipe support
+  let touchX = null;
+  window.addEventListener('touchstart', e=> touchX = e.touches[0].clientX, {passive:true});
+  window.addEventListener('touchend', e=>{
+    if(touchX === null) return;
+    const dx = e.changedTouches[0].clientX - touchX;
+    if(Math.abs(dx) > 60){ dx < 0 ? goTo(current+1) : goTo(current-1); }
+    touchX = null;
+  }, {passive:true});
+
+  layout();
+  updateChrome();
+  setTimeout(revealContent, 150);
+})();
+</script>
+</body>
+</html>
